@@ -1,4 +1,5 @@
-- name: Deploy Nginx on web servers
+---
+- name: Minimal Nginx deployment on web servers
   hosts: web_servers
   become: true
 
@@ -6,6 +7,11 @@
     index_html_src: files/index.html
     index_html_dest: /var/www/html/index.html
     nginx_default_site: /etc/nginx/sites-enabled/default
+    nginx_ssl_dir: /etc/nginx/ssl
+    nginx_ssl_cert: /etc/nginx/ssl/nginx.crt
+    nginx_ssl_key: /etc/nginx/ssl/nginx.key
+    nginx_crt_src: files/nginx.crt
+    nginx_key_src: files/nginx.key
 
   tasks:
     # Update APT cache
@@ -14,7 +20,7 @@
         update_cache: yes
 
     # Install nginx package
-    - name: Installer nginx
+    - name: Install nginx
       apt:
         name: nginx
         state: present
@@ -31,7 +37,7 @@
       file:
         path: "{{ nginx_default_site }}"
         state: absent
-      notify: Redémarrer nginx
+      notify: Restart nginx
 
     # Deploy custom index.html to the web root
     - name: Deploy custom index.html
@@ -41,6 +47,48 @@
         owner: www-data
         group: www-data
         mode: "0644"
+      notify: Restart nginx
+
+    # Create the SSL directory
+    - name: Create SSL directory
+      file:
+        path: "{{ nginx_ssl_dir }}"
+        state: directory
+        owner: root
+        group: www-data
+        mode: "0750"
+
+    # Copy the SSL private key if it exists
+    - name: Copy SSL private key if it exists
+      copy:
+        src: "{{ nginx_key_src }}"
+        dest: "{{ nginx_ssl_key }}"
+        owner: root
+        group: www-data
+        mode: "0640"
+      when: lookup('file', nginx_key_src, errors='ignore') != ''
+      notify: Restart nginx
+
+    # Copy the SSL certificate if it exists
+    - name: Copy SSL certificate if it exists
+      copy:
+        src: "{{ nginx_crt_src }}"
+        dest: "{{ nginx_ssl_cert }}"
+        owner: root
+        group: www-data
+        mode: "0644"
+      when: lookup('file', nginx_crt_src, errors='ignore') != ''
+      notify: Restart nginx
+
+    # Generate a self-signed certificate if none is provided
+    - name: Generate self-signed certificate if none is provided
+      command: >
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout {{ nginx_ssl_key }} -out {{ nginx_ssl_cert }} \
+        -subj "/C=FR/ST=France/L=Paris/O=Security/OU=IT Department/CN=localhost"
+      args:
+        creates: "{{ nginx_ssl_cert }}"
+      when: (lookup('file', nginx_crt_src, errors='ignore') == '' or lookup('file', nginx_key_src, errors='ignore') == '')
       notify: Restart nginx
 
   handlers:
