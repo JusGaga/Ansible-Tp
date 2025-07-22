@@ -12,6 +12,8 @@
     nginx_ssl_key: /etc/nginx/ssl/nginx.key
     nginx_crt_src: files/nginx.crt
     nginx_key_src: files/nginx.key
+    nginx_conf_src: files/nginx.conf.j2
+    nginx_conf_dest: /etc/nginx/nginx.conf
 
   tasks:
     # Update APT cache
@@ -46,6 +48,16 @@
         dest: "{{ index_html_dest }}"
         owner: www-data
         group: www-data
+        mode: "0644"
+      notify: Restart nginx
+
+    # Deploy custom nginx.conf
+    - name: Deploy custom nginx.conf
+      template:
+        src: "{{ nginx_conf_src }}"
+        dest: "{{ nginx_conf_dest }}"
+        owner: root
+        group: root
         mode: "0644"
       notify: Restart nginx
 
