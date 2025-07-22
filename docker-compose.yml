@@ -1,0 +1,100 @@
+services:
+  # Machine de contrôle Ansible
+  ansible-controller:
+    build:
+      context: ./.docker/ansible-controller
+      dockerfile: Dockerfile
+    image: semifir/ansible-controller
+    container_name: ansible-controller
+    hostname: ansible-controller
+    networks:
+      - ansible-network
+    volumes:
+      - ./ansible-config:/ansible
+      - ./ssh-keys:/root/.ssh
+    depends_on:
+      target1:
+        condition: service_healthy
+      target2:
+        condition: service_healthy
+      target3:
+        condition: service_healthy
+    restart: unless-stopped
+
+  target-build:
+    restart: "no"
+    build:
+      context: ./.docker/target
+      dockerfile: Dockerfile
+    image: semifir/ansible-target
+
+  # Machine cible 1
+  target1:
+    image: semifir/ansible-target
+    container_name: target1
+    hostname: target1
+    networks:
+      - ansible-network
+    volumes:
+      - ./ssh-keys:/tmp/ssh-keys:ro
+    ports:
+      - "2201:22"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "22"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - target-build
+
+  # Machine cible 2
+  target2:
+    image: semifir/ansible-target
+    container_name: target2
+    hostname: target2
+    networks:
+      - ansible-network
+    volumes:
+      - ./ssh-keys:/tmp/ssh-keys:ro
+    ports:
+      - "2202:22"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "22"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - target-build
+
+  # Machine cible 3
+  target3:
+    image: semifir/ansible-target
+    container_name: target3
+    hostname: target3
+    networks:
+      - ansible-network
+    volumes:
+      - ./ssh-keys:/tmp/ssh-keys:ro
+    ports:
+      - "2203:22"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "22"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - target-build
+
+networks:
+  ansible-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.10.0/24
+          gateway: 10.10.10.254

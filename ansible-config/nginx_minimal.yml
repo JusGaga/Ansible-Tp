@@ -1,0 +1,51 @@
+- name: Deploy Nginx on web servers
+  hosts: web_servers
+  become: true
+
+  vars:
+    index_html_src: files/index.html
+    index_html_dest: /var/www/html/index.html
+    nginx_default_site: /etc/nginx/sites-enabled/default
+
+  tasks:
+    # Update APT cache
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+
+    # Install nginx package
+    - name: Installer nginx
+      apt:
+        name: nginx
+        state: present
+
+    # Ensure nginx is started and enabled on boot
+    - name: Ensure nginx is started and enabled
+      service:
+        name: nginx
+        state: started
+        enabled: true
+
+    # Remove the default nginx site configuration
+    - name: Remove the default nginx site configuration
+      file:
+        path: "{{ nginx_default_site }}"
+        state: absent
+      notify: Redémarrer nginx
+
+    # Deploy custom index.html to the web root
+    - name: Deploy custom index.html
+      template:
+        src: "{{ index_html_src }}"
+        dest: "{{ index_html_dest }}"
+        owner: www-data
+        group: www-data
+        mode: "0644"
+      notify: Restart nginx
+
+  handlers:
+    # Handler to restart nginx service
+    - name: Restart nginx
+      service:
+        name: nginx
+        state: restarted

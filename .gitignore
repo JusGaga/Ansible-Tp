@@ -1,0 +1,28 @@
+# Ansible
+*.retry
+*.log
+
+# SSH keys and sensitive files
+ssh-keys/
+ansible-config/files/*.key
+ansible-config/files/*.crt
+ansible-config/files/*.pem
+
+# Python
+__pycache__/
+*.pyc
+
+# System
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Docker
+.docker/
+
+# Other
+*.bak 
