@@ -4,9 +4,12 @@
 
 # SSH keys and sensitive files
 ssh-keys/
-ansible-config/files/*.key
-ansible-config/files/*.crt
-ansible-config/files/*.pem
+*.key
+*.crt
+*.pem
+*.pub
+
+ansible-config/roles/users/files/
 
 # Python
 __pycache__/

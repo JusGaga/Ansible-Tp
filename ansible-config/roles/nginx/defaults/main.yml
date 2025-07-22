@@ -1,0 +1,5 @@
+---
+web_root: /var/www/html
+ssl_dir: /etc/nginx/ssl
+ssl_cert: /etc/nginx/ssl/nginx.crt
+ssl_key: /etc/nginx/ssl/nginx.key

@@ -1,0 +1,11 @@
+---
+- name: Secure and deploy web infrastructure
+  hosts: all
+  become: true
+  vars_files:
+    - vault_secrets.yml
+  roles:
+    - users
+    - firewall
+    - nginx
+    - logs_monitoring

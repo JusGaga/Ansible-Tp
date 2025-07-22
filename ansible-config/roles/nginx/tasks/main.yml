@@ -1,0 +1,79 @@
+---
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Ensure nginx is started and enabled
+  service:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Remove default site configuration
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  notify: Restart nginx
+
+- name: Deploy nginx.conf
+  template:
+    src: nginx.conf.j2
+    dest: /etc/nginx/nginx.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart nginx
+
+- name: Create SSL directory
+  file:
+    path: /etc/nginx/ssl
+    state: directory
+    owner: root
+    group: www-data
+    mode: "0750"
+
+- name: Copy SSL private key if it exists
+  copy:
+    src: nginx.key
+    dest: /etc/nginx/ssl/nginx.key
+    owner: root
+    group: www-data
+    mode: "0640"
+  when: lookup('file', 'nginx.key', errors='ignore') != ''
+  notify: Restart nginx
+
+- name: Copy SSL certificate if it exists
+  copy:
+    src: nginx.crt
+    dest: /etc/nginx/ssl/nginx.crt
+    owner: root
+    group: www-data
+    mode: "0644"
+  when: lookup('file', 'nginx.crt', errors='ignore') != ''
+  notify: Restart nginx
+
+- name: Generate self-signed certificate if none is provided
+  command: >
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+    -keyout /etc/nginx/ssl/nginx.key -out /etc/nginx/ssl/nginx.crt \
+    -subj "/C=FR/ST=France/L=Paris/O=Security/OU=IT Department/CN=localhost"
+  args:
+    creates: /etc/nginx/ssl/nginx.crt
+  when: (lookup('file', 'nginx.crt', errors='ignore') == '' or lookup('file', 'nginx.key', errors='ignore') == '')
+  notify: Restart nginx
+
+- name: Deploy index.html
+  template:
+    src: index.html
+    dest: /var/www/html/index.html
+    owner: www-data
+    group: www-data
+    mode: "0644"
+  notify: Restart nginx
+
+- name: Test nginx configuration syntax
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+  failed_when: nginx_test.rc != 0

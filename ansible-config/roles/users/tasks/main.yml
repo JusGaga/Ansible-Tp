@@ -1,0 +1,24 @@
+---
+- name: Ensure deploy user exists
+  user:
+    name: deploy
+    shell: /bin/bash
+    groups: sudo
+    append: yes
+    create_home: yes
+    password: "!"
+
+- name: Ensure deploy user has authorized_keys
+  authorized_key:
+    user: deploy
+    state: present
+    key: "{{ lookup('file', 'deploy_id_rsa.pub') }}"
+  when: lookup('file', 'deploy_id_rsa.pub', errors='ignore') != ''
+
+- name: Ensure deploy user owns web root
+  file:
+    path: "{{ web_root | default('/var/www/html') }}"
+    owner: deploy
+    group: www-data
+    recurse: yes
+    state: directory
