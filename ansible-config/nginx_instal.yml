@@ -14,8 +14,6 @@
     nginx_crt_src: files/nginx.crt # Source path for the SSL certificate
     nginx_key_src: files/nginx.key # Source path for the SSL private key
     nginx_secure_conf_src: files/nginx.conf.j2 # Source path for the secure config template
-    nginx_secure_conf_dest: /etc/nginx/sites-available/secure # Destination path for the secure config
-    nginx_secure_link_dest: /etc/nginx/sites-enabled/secure # Symlink for the secure site
     nginx_conf_path: /etc/nginx/nginx.conf # Main Nginx config file path
     web_root_dir: /var/www/html # Web root directory
 
@@ -117,7 +115,7 @@
     - name: Deploy secure Nginx configuration with default permissions (root:www-data)
       template:
         src: "{{ nginx_secure_conf_src }}"
-        dest: "{{ nginx_secure_conf_dest }}"
+        dest: "{{ nginx_conf_path }}"
         owner: root
         group: www-data
         mode: "0640"

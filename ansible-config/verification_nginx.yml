@@ -1,0 +1,55 @@
+---
+- name: Nginx Verification
+  hosts: web_servers
+  become: yes
+  tasks:
+    - name: Check Nginx service state
+      ansible.builtin.service_facts:
+
+    - name: Show Nginx service state
+      ansible.builtin.debug:
+        msg: >
+          {% set nginx_service = (ansible_facts.services['nginx.service'] if 'nginx.service' in ansible_facts.services else (ansible_facts.services['nginx'] if 'nginx' in ansible_facts.services else None)) %}
+          {% if nginx_service %}
+            {% if nginx_service.state == 'running' %}
+              Nginx is running.
+            {% else %}
+              Nginx is present but its state is: {{ nginx_service.state }}
+            {% endif %}
+          {% else %}
+            The nginx service was not found on this machine.
+          {% endif %}
+
+    - name: Check HTTP to HTTPS redirection
+      ansible.builtin.uri:
+        url: http://localhost
+        return_content: no
+        follow_redirects: none
+        status_code: 301
+      delegate_to: "{{ inventory_hostname }}"
+      register: result_http
+
+    - name: Show HTTP return code
+      ansible.builtin.debug:
+        msg: "Returned HTTP code: {{ result_http.status }}"
+
+    - name: Check that Nginx responds on HTTPS 200
+      ansible.builtin.uri:
+        url: https://localhost
+        validate_certs: no
+        return_content: no
+      delegate_to: "{{ inventory_hostname }}"
+      register: result_https
+
+    - name: Show HTTPS return code
+      ansible.builtin.debug:
+        msg: "Returned HTTPS code: {{ result_https.status }}"
+
+    - name: Get Nginx version
+      ansible.builtin.command: nginx -v
+      register: nginx_version
+      ignore_errors: yes
+
+    - name: Show Nginx version
+      ansible.builtin.debug:
+        msg: "Nginx version: {{ nginx_version.stderr }}"
