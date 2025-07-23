@@ -1,0 +1,131 @@
+# Deploy Nginx on web servers with enhanced security
+- name: Deploy Nginx on web servers
+  hosts: web_servers
+  become: true
+
+  # Variables used for all file paths
+  vars:
+    index_html_src: files/index.html # Source path for the custom index.html file
+    index_html_dest: /var/www/html/index.html # Destination path on the server
+    nginx_default_site_dest: /etc/nginx/sites-enabled/default # Path to the default Nginx site
+    nginx_ssl_cert: /etc/nginx/ssl/nginx.crt # Path to the SSL certificate
+    nginx_ssl_key: /etc/nginx/ssl/nginx.key # Path to the SSL private key
+    nginx_ssl_dir: /etc/nginx/ssl # SSL directory
+    nginx_crt_src: files/nginx.crt # Source path for the SSL certificate
+    nginx_key_src: files/nginx.key # Source path for the SSL private key
+    nginx_secure_conf_src: files/nginx.conf.j2 # Source path for the secure config template
+    nginx_secure_conf_dest: /etc/nginx/sites-available/secure # Destination path for the secure config
+    nginx_secure_link_dest: /etc/nginx/sites-enabled/secure # Symlink for the secure site
+    nginx_conf_path: /etc/nginx/nginx.conf # Main Nginx config file path
+    web_root_dir: /var/www/html # Web root directory
+
+  tasks:
+    # Update APT cache
+    - name: Update APT cache
+      apt:
+        update_cache: yes
+
+    # Install nginx using apt
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+
+    # Ensure nginx is started and enabled on boot (with error handling)
+    - name: Ensure nginx is started and enabled
+      service:
+        name: nginx
+        state: started
+        enabled: true
+      register: nginx_service
+      failed_when: nginx_service.failed
+      ignore_errors: true
+
+    - name: Show nginx error log if failed to start
+      command: cat /var/log/nginx/error.log
+      when: nginx_service is failed
+      ignore_errors: true
+
+    # Remove the default Nginx configuration
+    - name: Delete default configuration
+      file:
+        path: "{{ nginx_default_site_dest }}"
+        state: absent
+      notify: restart nginx
+
+    # Create the web root directory with default permissions (www-data)
+    - name: Create web root directory with default permissions (www-data)
+      file:
+        path: "{{ web_root_dir }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: "0750"
+
+    # Deploy index.html with default permissions (www-data)
+    - name: Deploy index.html (default permissions, www-data)
+      template:
+        src: "{{ index_html_src }}"
+        dest: "{{ index_html_dest }}"
+        owner: www-data
+        group: www-data
+        mode: "0640"
+      notify: restart nginx
+
+    # Create the SSL directory with default permissions (root:www-data)
+    - name: Create SSL directory with default permissions (root:www-data)
+      file:
+        path: "{{ nginx_ssl_dir }}"
+        state: directory
+        owner: root
+        group: www-data
+        mode: "0750"
+
+    # Generate a self-signed certificate if absent
+    - name: Generate self-signed certificate if absent
+      command: >
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout {{ nginx_ssl_key }} -out {{ nginx_ssl_cert }} \
+        -subj "/C=FR/ST=France/L=Paris/O=Security/OU=IT Department/CN=localhost"
+      args:
+        creates: "{{ nginx_ssl_cert }}"
+      notify: restart nginx
+
+    # Deploy the SSL private key with default permissions (root:www-data)
+    - name: Deploy SSL private key (default permissions, root:www-data)
+      copy:
+        src: "{{ nginx_key_src }}"
+        dest: "{{ nginx_ssl_key }}"
+        owner: root
+        group: www-data
+        mode: "0640"
+      when: nginx_key_src is defined
+      notify: restart nginx
+
+    # Deploy the SSL certificate with default permissions (root:www-data)
+    - name: Deploy SSL certificate (default permissions, root:www-data)
+      copy:
+        src: "{{ nginx_crt_src }}"
+        dest: "{{ nginx_ssl_cert }}"
+        owner: root
+        group: www-data
+        mode: "0644"
+      when: nginx_crt_src is defined
+      notify: restart nginx
+
+    # Deploy secure Nginx configuration with default permissions (root:www-data)
+    - name: Deploy secure Nginx configuration with default permissions (root:www-data)
+      template:
+        src: "{{ nginx_secure_conf_src }}"
+        dest: "{{ nginx_secure_conf_dest }}"
+        owner: root
+        group: www-data
+        mode: "0640"
+      notify: restart nginx
+
+  handlers:
+    # Handler to restart nginx if needed
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
